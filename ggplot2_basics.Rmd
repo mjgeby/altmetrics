@@ -1,0 +1,233 @@
+---
+title: "ggplot2"
+author: "Michael Gebhardt"
+date: "September 15, 2015"
+output: html_document
+---
+
+# ggplot2
+
+```{r}
+library("ggplot2")
+```
+
+```{r plot1}
+p <- ggplot(data = research, mapping = aes(x = pdfDownloadsCount,
+                                           y = wosCountThru2011)) +
+  geom_point()
+p
+```
+
+In ggplot2, you are mapping your data onto layers on the plot
+The '+' sign is relatively equivalent to the pipe command from dplyr (%>%)
+```{r plot1}
+p <- ggplot(data = research, aes(x = pdfDownloadsCount,
+                  # Can remove mapping, since it's default
+                                 y = wosCountThru2011)) +
+  geom_point(aes(color = journal))
+p
+```
+
+```{r}
+p <- ggplot(data = research, aes(x = pdfDownloadsCount,
+                                 y = wosCountThru2011)) +
+  geom_point(aes(size = authorsCount))
+p
+```
+
+```{r}
+p <- ggplot(data = research, aes(x = pdfDownloadsCount,
+                                 y = wosCountThru2011,
+                                 color = journal)) +
+  geom_point() +
+  geom_smooth()
+p
+```
+Can omit aes and then it will ignore differences in data and color everything one color. 
+'aes' will apply aesthetics based on the data itself (data dependent)
+
+# Challenge Lesson 15
+
+Create a scatter plot with daysSincePublished mapped to the x-axis and wosCountThru2011 mapped
+to the y-axis. Include a loess fit of the data. Set the transparency level (alpha) of the points
+to 0.5 and color the points according to the journal where the article was published. Make the 
+loess curve red.
+
+```{r}
+p <- ggplot(research, aes(x = daysSincePublished,
+                          y = wosCountThru2011)) +
+  geom_point(aes(color = journal), alpha = 0.5) +
+  geom_smooth(color = "red")
+p
+```
+The plot has a single curve plotted in red, showing a slight positive correlation between citation number and age
+Also the points are semi transparent, so stacked points are darker
+
+### USING SCALES
+
+```{r}
+p <- ggplot(data = research, aes(x = pdfDownloadsCount,
+                                 y = wosCountThru2011)) +
+  geom_point(aes(color = journal)) +
+  geom_smooth()
+p + scale_x_log10() + scale_y_log10()
+```
+Since we're doing a log scale, any values with a 0 will throw an error message; can intercept:
+
+```{r}
+p <- ggplot(data = research, aes(x = log10(pdfDownloadsCount + 1),
+                                 y = log10(wosCountThru2011 + 1))) +
+  geom_point(aes(color = journal)) +
+  geom_smooth() +
+  scale_x_continuous(breaks = c(1, 3), labels = (c(10,1000))) +  
+  # This keeps the x axis labels in check; since without this value the axis labels disappear
+  # Also keeps the axis scaled appropriate for log10 scale
+  scale_y_continuous(breaks = c(1, 3), labels = c(10, 1000),
+                     limits = c(1, 3))
+p
+```
+
+## Different Color Options
+
+```{r}
+p + scale_color_grey()
+```
+
+```{r}
+p + scale_color_manual(values = c("red", "green", "blue", "orange", "pink", "yellow", "purple"))
+```
+
+```{r}
+library("RColorBrewer")
+display.brewer.all(type = "qual")
+```
+
+```{r}
+p + scale_color_brewer(palette ="Set1", 
+                       labels = 1:7, name = "PLOS")
+```
+
+## GGPLOT CHALLENGE
+
+Update the plot to use a square root transfomration instead of log10.  Also, color the points using the ColorBrewer palette "Accent".
+
+```{r}
+p <- ggplot(data = research, aes(x = sqrt(pdfDownloadsCount),
+                                 y = sqrt(wosCountThru2011))) +
+  geom_point(aes(color = journal)) +
+  geom_smooth()
+p
+p + scale_color_brewer(palette = "Accent")
+```
+
+Can also remove the 'sqrt' transformations in the aes command and do :
+  'p + scale_x_sqrt' and '+ scale_y_sqrt'
+  
+### Using facets to make subplots
+
+```{r}
+p <- ggplot(data = research, aes(x = sqrt(pdfDownloadsCount),
+                                 y = sqrt(wosCountThru2011))) +
+  geom_point(aes(color = journal)) +
+  geom_smooth()
+p + facet_wrap(~journal)
+```
+
+Items in aes() are forced to all layers on the plot?
+
+Using 'facet_grid'
+
+```{r}
+
+research <- mutate(research, immuno = grepl("Immunology", plosSubjectTags))
+p + facet_grid(journal~immuno)
+```
+This gives and error message because we've changed the research data (added immuno), but original call to ggplot used different data frame.
+```{r}
+research <- mutate(research, immuno = grepl("Immunology", plosSubjectTags))
+p <- ggplot(data = research, aes(x = sqrt(pdfDownloadsCount),
+                                 y = sqrt(wosCountThru2011))) +
+  geom_point(aes(color = journal)) +
+  geom_smooth()
+p + facet_grid(journal~immuno)
+```
+
+### Using different geoms
+
+```{r}
+p <- ggplot(data = research, aes(x = journal,
+                                 y = sqrt(wosCountThru2011))) +
+  geom_boxplot()
+p
+```
+
+### Making a barplot
+
+```{r}
+# Get data
+tweets_per_journal <- research %>% group_by(journal) %>%
+  summarize(number_articles = n(), 
+            tweets_mean = mean(backtweetsCount),
+            tweets_SEM = sd(backtweetsCount) / sqrt(number_articles))
+tweets_per_journal
+```
+
+```{r}
+tweets_bar <- ggplot(tweets_per_journal, aes(x = journal,
+                                             y = tweets_mean)) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = tweets_mean - tweets_SEM, ymax = tweets_mean + tweets_SEM), width = 0.1)+
+  geom_text(aes(label = number_articles), hjust = 0, vjust = -0.1)
+tweets_bar
+```
+'hjust' = horizontal justification labels
+'vjust' = vertical justification for labels
+
+# Challenges for Lesson 18
+Challenge 1:
+
+Modify dplyr code above to calculate the mean, SEM and sample size of the number of
+article tweets per journal and per year. Use 'facet_wrap' to make a separate subplot
+per year. 
+
+```{r}
+# Modify data frame:
+tweets_challenge <- research %>% group_by(journal, year) %>%
+  summarize(num = n(), 
+            mean = mean(backtweetsCount),
+            SEM = sd(backtweetsCount) / sqrt(num))
+tweets_challenge
+# Now the plots:
+tweets_bar_chall <- ggplot(tweets_challenge, aes(x = journal,
+                                             y = mean)) +
+  geom_point(stat = "identity") +
+  geom_errorbar(aes(ymin = mean - SEM, ymax = mean + SEM), width = 0.1)
+tweets_bar_chall
+tweets_bar_chall + facet_wrap(~year)
+```
+
+Challenge 2: Visualizing a single distribution
+The geoms 'geom_histogram' and 'geom_density' can be used to create histograms
+and density plots, respectively. Using these geoms, visualize the distribution
+of 2011 citations (wosCountThru2011). Compare the raw distribution to log10 
+and square root transformations.
+
+```{r}
+??
+```
+
+
+## Customizing the Plots
+
+```{r}
+tweets_bar_chall + labs(title = "Mean tweets per journal per year", x = "Journal", y = "Mean Number of Tweets") + facet_wrap(~year) + 
+  theme_classic()
+```
+
+```{r}
+tweets_bar_chall + labs(title = "Mean tweets per journal per year", x = "Journal", y = "Mean Number of Tweets") + facet_wrap(~year) + 
+  theme_bw()
+```
+
+Can set default themes by using 
+'theme_set(theme_bw())'

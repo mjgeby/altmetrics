@@ -1,0 +1,207 @@
+---
+title: "dplyr basics"
+author: "Michael Gebhardt"
+date: "September 15, 2015"
+output: html_document
+---
+## dplyr
+
+```{r}
+library("dplyr")
+```
+
+```{r}
+research <- filter(counts_raw, articleType == "Research Article")
+nrow(research)
+```
+
+```{r}
+research_2006 <- filter(research, year == 2006)
+nrow(research_2006)
+```
+
+```{r}
+research_2006_fb <- filter(research, year == 2006, 
+                            facebookCommentCount >0)
+nrow(research_2006_fb)
+```
+
+```{r}
+research_2006_fb_tweet_infectious <- filter(research, year == 2006, 
+                            facebookCommentCount >0 | backtweetsCount> 0,
+                            grepl("Infectious Diseases", plosSubjectTags))
+nrow(research_2006_fb_tweet_infectious)
+```
+
+```{r}
+colnames(research)
+```
+
+```{r}
+article_info <- select(research, doi, pubDate, journal, title, articleType, authorsCount)
+colnames(article_info)
+```
+
+```{r}
+article_info <- select(research, doi:authorsCount)
+colnames(article_info)
+  # Can select consecutive columns by listing 'first column:last column'
+```
+
+```{r}
+metrics <- select(research, contains("Count"), -authorsCount,
+                  f1000Factor, wikipediaCites)
+  # Can exclude a given column by puting a '-' in front of that column
+  # Also can quickly re order by puttin them in your favorite order
+  # By default, 'contains' ignores case of argument, but can be set to strict
+colnames(metrics)
+```
+
+```{r}
+head(select(research, 3))
+# Subsetting the third column of dataframe research; can also use column name
+```
+
+
+```{r}
+slice(article_info, 1:3)
+# slice command exports the rows you specify from your favorite data frame
+```
+
+```{r}
+low_cite_pre08_pdf <- filter(research, year < 2008, pdfDownloadsCount > 1000)
+nrow(low_cite_pre08_pdf)
+```
+
+
+
+```{r}
+low_cite <- filter(research, year <= 2008, pdfDownloadsCount > 1000,
+                            mendeleyReadersCount > 15, wosCountThru2011 < 10)
+# Task is to find the number of articles:
+  # published in or before 2008
+  # with more than 1000 pdf downloads
+  # Is contained in more than 15 Mendeley libraries
+  # and has few than 10 citations in 2011
+
+select(low_cite, title)
+  # Show titles for the titles
+nrow(low_cite)
+```
+
+
+```{r}
+low_cite_2010 <- filter(research, year <= 2008,
+                        pdfDownloadsCount > 1000,
+                        mendeleyReadersCount > 15,
+                        wosCountThru2010 < 10)
+```
+
+nrow(low_cite_2010)
+
+
+### Chaining Commands with dplyr
+
+pipe command = '%>%'
+
+```{r}
+facebook_2006 <- research %>% filter(year == 2006) %>% 
+    select(contains("facebook"))
+    # tell R to open 'research' data frame, pipe to filter and collect all articles from 2006 
+    # then pipe to select in order to collect columns that contains 'facebook'
+head(facebook_2006)
+nrow(facebook_2006)
+
+print2006 <- research %>% filter(year == 2006)
+nrow(print2006)
+  # just showing first step
+
+# Can also pipe to a command:
+
+research %>% filter(year == 2006) %>%
+    nrow
+```
+
+arrange, works similar to function order
+```{r}
+research %>% arrange(authorsCount, wosCountThru2011) %>%
+  select(authorsCount, wosCountThru2011) %>%
+  slice(1:10)
+```
+
+```{r}
+# Can also sort in descending order with 'desc' modifier
+research %>% arrange(desc(authorsCount, wosCountThru2011)) %>%
+  select(authorsCount, wosCountThru2011) %>%
+  slice(1:10)
+```
+
+### CHALLENGES FROM LESSON 13:
+
+Challenge 1: Titles of most cited articles:
+  Using a chain of pipes, output the titles of the three research articles with the largest 2011 citation count.
+
+```{r Lesson 13 Challenge 1}
+titles <- research %>% arrange(desc(wosCountThru2011)) %>%
+          select(title) %>%
+          slice(1:3)
+titles
+```
+
+Challenge 2: Lots of Authors:
+  Using a chain of pipes, output the author count, title, jornal and subject tags (plosSubjectTags) of the three   research atricles with the larges number of authors.
+
+```{r Lesson 13 Challenge 2}
+chal13.2 <- research %>% arrange(desc(authorsCount)) %>%
+  select(authorsCount, title, journal, plosSubjectTags)
+  # Need to use descendind order or use 'tail' to get highest counts
+chal13.2_out <- slice(chal13.2, 1:3)
+chal13.2_out
+```
+
+### Summarizing with dplyr
+
+```{r}
+# Add columns to data frame using existing data columns
+research <- research %>% mutate(weeksSincePublished = daysSincePublished / 7,
+                                yearsSincePublished = weeksSincePublished / 52)
+
+research %>% select(contains("Since")) %>% slice(1:10)
+# observe data we just created
+```
+
+Using Summarize
+
+```{r}
+research %>% summarize(plos_mean <- mean(plosCommentCount), 
+                       plos_sd <- sd(plosCommentCount),
+                       num = n())
+# output is a dataframe instead of a vector, making downstream analyses more simple
+```
+
+### Using group_by
+
+```{r group_by function1}
+research %>% group_by(journal) %>% 
+  summarize(tweets_mean = mean(backtweetsCount))
+    # group_by eliminates the need for for loops
+    # This entry sorts research by journal; then summarize calculates the average tweets per journal
+    # This would take several nested for loops
+```
+
+```{r group_by function2}
+research %>% group_by(journal, year) %>% 
+  summarize(tweets_mean = mean(backtweetsCount))
+  # This example adds another parameter to group by -> year
+```
+
+### Challenge 14: Summarizing the number of tweets per journal
+
+```{r Challenge_14}
+tweets_per_journal <- research %>% group_by(journal) %>%
+  summarize(number_articles = n(), 
+            tweets_mean = mean(backtweetsCount),
+            tweets_SEM = sd(backtweetsCount) / sqrt(number_articles))
+# Create data frame with total number of articles per journal, the tweets recieved by articles in that journal and the SEM (SD / sqrt(mean tweets).
+tweets_per_journal
+```

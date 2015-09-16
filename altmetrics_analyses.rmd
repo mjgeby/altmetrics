@@ -1,0 +1,41 @@
+---
+title: "On the Origin of Citations"
+author: "Michael Gebhardt"
+date: "September 15, 2015"
+output:
+  html_document:
+    fig_caption: yes
+    fig_height: 8
+    fig_width: 8
+    highlight: espresso
+    theme: cerulean
+    toc: yes
+  pdf_document:
+    toc: yes
+  word_document: default
+---
+
+# Load the Data
+
+## Using 'read.delim'
+
+```{r load_data }
+counts_raw <- read.delim("data/counts-raw.txt.gz")
+counts_norm <- read.delim("data/counts-norm.txt.gz")
+```
+
+# Data Exploration
+
+### What's the distribution of authors in all articles of our data set?
+```{r Author_histogram, fig.cap="Figure 1. Number of Authors per Article", echo=FALSE}
+hist(counts_raw$authorsCount, main="Authors per Paper", xlab = "# of authors", ylab = "Count", xlim = c(0, 25), ylim = c(0, 20000))
+```
+
+### How popular are articles on Facebook?
+```{r Facebook_shares, fig.cap="Figure 2. Facebook Shares per Article", echo=FALSE}
+hist((counts_raw$facebookShareCount), main = "Facebook Shares per Article", xlab = "# of Shares", ylab = "Articles")
+```
+
+The average number of Facebook Shares per article in the data set is **`r mean(counts_raw$facebookShareCount)`**.
+
+The maximum number of Facebook Shares for the dataset is `r max(counts_raw$facebookShareCount)`.
